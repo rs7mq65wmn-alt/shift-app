@@ -95,7 +95,7 @@
                 Rate for this shift
                 <div class="input-suffix">
                   <span>£</span>
-                  <input id="shiftRate" type="number" min="0" step="0.01" placeholder="Use default">
+                  <input id="shiftRate" type="text" inputmode="decimal" pattern="[0-9]*[.]?[0-9]*" placeholder="Use default">
                 </div>
               </label>
             </div>
@@ -112,7 +112,7 @@
               <label>
                 Category multiplier
                 <div class="input-suffix">
-                  <input id="categoryMultiplier" type="number" min="1" step="0.05" value="1">
+                  <input id="categoryMultiplier" type="text" inputmode="decimal" pattern="[0-9]*[.]?[0-9]*" value="1">
                   <span>x</span>
                 </div>
               </label>
@@ -123,14 +123,14 @@
                 Paid holiday
                 <div class="input-suffix">
                   <span>£</span>
-                  <input id="holidayPay" type="number" min="0" step="0.01" value="0">
+                  <input id="holidayPay" type="text" inputmode="decimal" pattern="[0-9]*[.]?[0-9]*" value="0">
                 </div>
               </label>
               <label>
                 Sick pay
                 <div class="input-suffix">
                   <span>£</span>
-                  <input id="sickPay" type="number" min="0" step="0.01" value="0">
+                  <input id="sickPay" type="text" inputmode="decimal" pattern="[0-9]*[.]?[0-9]*" value="0">
                 </div>
               </label>
             </div>
@@ -155,20 +155,20 @@
               Default hourly rate
               <div class="input-suffix">
                 <span>£</span>
-                <input id="defaultRate" type="number" min="0" step="0.01" value="0">
+                <input id="defaultRate" type="text" inputmode="decimal" pattern="[0-9]*[.]?[0-9]*" value="0">
               </div>
             </label>
             <label>
               Overtime starts after
               <div class="input-suffix">
-                <input id="overtimeAfter" type="number" min="0" step="0.25" value="40">
+                <input id="overtimeAfter" type="text" inputmode="decimal" pattern="[0-9]*[.]?[0-9]*" value="40">
                 <span>hrs</span>
               </div>
             </label>
             <label>
               Overtime multiplier
               <div class="input-suffix">
-                <input id="overtimeMultiplier" type="number" min="1" step="0.05" value="1.5">
+                <input id="overtimeMultiplier" type="text" inputmode="decimal" pattern="[0-9]*[.]?[0-9]*" value="1.5">
                 <span>x</span>
               </div>
             </label>
@@ -199,7 +199,7 @@
               Payslip gross pay
               <div class="input-suffix">
                 <span>£</span>
-                <input id="payslipAmount" type="number" min="0" step="0.01" placeholder="0.00">
+                <input id="payslipAmount" type="text" inputmode="decimal" pattern="[0-9]*[.]?[0-9]*" placeholder="0.00">
               </div>
             </label>
             <div class="difference" id="differenceBox">

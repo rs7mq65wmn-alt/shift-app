@@ -80,6 +80,12 @@ function money(value) {
   }).format(value || 0);
 }
 
+function decimalValue(value, fallback = 0) {
+  if (value === "" || value === null || value === undefined) return fallback;
+  const parsed = Number(String(value).replace(",", "."));
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
 function niceDate(value) {
   const [year, month, day] = value.split("-").map(Number);
   return new Intl.DateTimeFormat("en-GB", {
@@ -140,7 +146,7 @@ function payCategoryLabel(value) {
 }
 
 function shiftAdditions(shift) {
-  return Number(shift.holidayPay || 0) + Number(shift.sickPay || 0);
+  return decimalValue(shift.holidayPay) + decimalValue(shift.sickPay);
 }
 
 function getPeriodBounds() {
@@ -186,9 +192,9 @@ function visibleShifts() {
 }
 
 function calculateTotals(shifts) {
-  const defaultRate = Number(state.settings.defaultRate || 0);
-  const overtimeAfter = Number(state.settings.overtimeAfter || 0);
-  const overtimeMultiplier = Number(state.settings.overtimeMultiplier || 1);
+  const defaultRate = decimalValue(state.settings.defaultRate);
+  const overtimeAfter = decimalValue(state.settings.overtimeAfter);
+  const overtimeMultiplier = decimalValue(state.settings.overtimeMultiplier, 1);
   let regularHoursRemaining = overtimeAfter > 0 ? overtimeAfter : Infinity;
   let totalHours = 0;
   let breakHours = 0;
@@ -200,9 +206,9 @@ function calculateTotals(shifts) {
 
   [...shifts].sort((a, b) => `${a.date}${a.start}`.localeCompare(`${b.date}${b.start}`)).forEach((shift) => {
     const hours = shiftHours(shift);
-    const rate = Number(shift.rate || defaultRate);
+    const rate = decimalValue(shift.rate, defaultRate);
     const payCategory = shift.payCategory || "normal";
-    const categoryMultiplier = Number(shift.categoryMultiplier || 1);
+    const categoryMultiplier = decimalValue(shift.categoryMultiplier, 1);
     const isPremiumCategory = payCategory === "restDay" || payCategory === "sunday";
     const regularHours = isPremiumCategory ? 0 : Math.min(hours, regularHoursRemaining);
     const shiftOvertime = isPremiumCategory ? 0 : Math.max(0, hours - regularHours);
@@ -222,14 +228,14 @@ function calculateTotals(shifts) {
 }
 
 function shiftPayForDisplay(shift, previousHours) {
-  const rate = Number(shift.rate || state.settings.defaultRate || 0);
+  const rate = decimalValue(shift.rate, decimalValue(state.settings.defaultRate));
   const hours = shiftHours(shift);
-  const overtimeAfter = Number(state.settings.overtimeAfter || 0);
-  const multiplier = Number(state.settings.overtimeMultiplier || 1);
+  const overtimeAfter = decimalValue(state.settings.overtimeAfter);
+  const multiplier = decimalValue(state.settings.overtimeMultiplier, 1);
   const payCategory = shift.payCategory || "normal";
 
   if (payCategory === "restDay" || payCategory === "sunday") {
-    return hours * rate * Number(shift.categoryMultiplier || 1) + shiftAdditions(shift);
+    return hours * rate * decimalValue(shift.categoryMultiplier, 1) + shiftAdditions(shift);
   }
 
   if (!overtimeAfter) return hours * rate + shiftAdditions(shift);
@@ -311,7 +317,7 @@ function renderSummary(shifts) {
   els.leavePay.textContent = money(totals.leavePay);
   els.shiftCount.textContent = String(shifts.length);
 
-  const payslipAmount = Number(state.settings.payslipAmount);
+  const payslipAmount = decimalValue(state.settings.payslipAmount);
   els.differenceBox.className = "difference";
 
   if (!state.settings.payslipAmount) {
@@ -349,11 +355,11 @@ function renderTable(shifts) {
 
   shifts.forEach((shift) => {
     const row = document.createElement("tr");
-    const rate = Number(shift.rate || state.settings.defaultRate || 0);
+    const rate = decimalValue(shift.rate, decimalValue(state.settings.defaultRate));
     const hours = shiftHours(shift);
     const pay = shiftPayForDisplay(shift, previousHoursById.get(shift.id) || 0);
     const multiplier = shift.payCategory === "restDay" || shift.payCategory === "sunday"
-      ? Number(shift.categoryMultiplier || 1).toFixed(2)
+      ? decimalValue(shift.categoryMultiplier, 1).toFixed(2)
       : "Auto";
 
     row.innerHTML = `
@@ -364,8 +370,8 @@ function renderTable(shifts) {
       <td>${payCategoryLabel(shift.payCategory)}</td>
       <td>${multiplier}</td>
       <td>${money(rate)}</td>
-      <td>${money(Number(shift.holidayPay || 0))}</td>
-      <td>${money(Number(shift.sickPay || 0))}</td>
+      <td>${money(decimalValue(shift.holidayPay))}</td>
+      <td>${money(decimalValue(shift.sickPay))}</td>
       <td>${money(pay)}</td>
       <td>${escapeHtml(shift.notes || "")}</td>
       <td>
@@ -421,11 +427,11 @@ function handleFormSubmit(event) {
     start: normalizeTime(els.startTime.value),
     end: normalizeTime(els.endTime.value),
     breakMinutes: Number(els.breakMinutes.value || 0),
-    rate: els.shiftRate.value ? Number(els.shiftRate.value) : "",
+    rate: els.shiftRate.value ? decimalValue(els.shiftRate.value) : "",
     payCategory: els.payCategory.value,
-    categoryMultiplier: Number(els.categoryMultiplier.value || 1),
-    holidayPay: Number(els.holidayPay.value || 0),
-    sickPay: Number(els.sickPay.value || 0),
+    categoryMultiplier: decimalValue(els.categoryMultiplier.value, 1),
+    holidayPay: decimalValue(els.holidayPay.value),
+    sickPay: decimalValue(els.sickPay.value),
     notes: els.shiftNotes.value.trim()
   };
 
@@ -502,10 +508,10 @@ function exportCsv() {
       shift.breakMinutes,
       shiftHours(shift).toFixed(2),
       payCategoryLabel(shift.payCategory),
-      shift.payCategory === "restDay" || shift.payCategory === "sunday" ? Number(shift.categoryMultiplier || 1).toFixed(2) : "Auto",
-      Number(shift.rate || state.settings.defaultRate || 0).toFixed(2),
-      Number(shift.holidayPay || 0).toFixed(2),
-      Number(shift.sickPay || 0).toFixed(2),
+      shift.payCategory === "restDay" || shift.payCategory === "sunday" ? decimalValue(shift.categoryMultiplier, 1).toFixed(2) : "Auto",
+      decimalValue(shift.rate, decimalValue(state.settings.defaultRate)).toFixed(2),
+      decimalValue(shift.holidayPay).toFixed(2),
+      decimalValue(shift.sickPay).toFixed(2),
       pay.toFixed(2),
       shift.notes || ""
     ]);
