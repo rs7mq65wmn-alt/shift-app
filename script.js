@@ -100,8 +100,23 @@ function dateOnly(value) {
 }
 
 function minutesSinceMidnight(time) {
-  const [hours, minutes] = time.split(":").map(Number);
+  const [hours, minutes] = normalizeTime(time).split(":").map(Number);
   return hours * 60 + minutes;
+}
+
+function normalizeTime(value) {
+  const trimmed = String(value || "").trim();
+  const compactMatch = trimmed.match(/^([01]\d|2[0-3])([0-5]\d)$/);
+  if (compactMatch) return `${compactMatch[1]}:${compactMatch[2]}`;
+
+  const colonMatch = trimmed.match(/^([01]\d|2[0-3]):([0-5]\d)$/);
+  if (colonMatch) return `${colonMatch[1]}:${colonMatch[2]}`;
+
+  return trimmed;
+}
+
+function normalizeTimeField(input) {
+  input.value = normalizeTime(input.value);
 }
 
 function shiftMinutes(shift) {
@@ -348,8 +363,8 @@ function handleFormSubmit(event) {
   const shift = {
     id: els.editingId.value || crypto.randomUUID(),
     date: els.shiftDate.value,
-    start: els.startTime.value,
-    end: els.endTime.value,
+    start: normalizeTime(els.startTime.value),
+    end: normalizeTime(els.endTime.value),
     breakMinutes: Number(els.breakMinutes.value || 0),
     rate: els.shiftRate.value ? Number(els.shiftRate.value) : "",
     payCategory: els.payCategory.value,
@@ -478,6 +493,8 @@ function bindEvents() {
   els.cancelEdit.addEventListener("click", resetForm);
   els.exportCsv.addEventListener("click", exportCsv);
   els.resetData.addEventListener("click", resetData);
+  els.startTime.addEventListener("blur", () => normalizeTimeField(els.startTime));
+  els.endTime.addEventListener("blur", () => normalizeTimeField(els.endTime));
 
   [els.defaultRate, els.overtimeAfter, els.overtimeMultiplier, els.periodFilter, els.fromDate, els.toDate, els.payslipAmount]
     .forEach((input) => input.addEventListener("input", updateSetting));
