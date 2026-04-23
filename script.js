@@ -10,7 +10,8 @@ const state = {
     fromDate: "",
     toDate: "",
     payslipAmount: ""
-  }
+  },
+  draft: null
 };
 
 const els = {
@@ -62,6 +63,7 @@ function loadState() {
     const parsed = JSON.parse(saved);
     state.shifts = Array.isArray(parsed.shifts) ? parsed.shifts : [];
     state.settings = { ...state.settings, ...(parsed.settings || {}) };
+    state.draft = parsed.draft || null;
   } catch {
     localStorage.removeItem(storageKey);
   }
@@ -117,6 +119,7 @@ function normalizeTime(value) {
 
 function normalizeTimeField(input) {
   input.value = normalizeTime(input.value);
+  saveFormDraft();
 }
 
 function shiftMinutes(shift) {
@@ -247,6 +250,56 @@ function syncSettingsFields() {
   els.customRanges.forEach((item) => item.classList.toggle("hidden", state.settings.periodFilter !== "custom"));
 }
 
+function getFormDraft() {
+  return {
+    editingId: els.editingId.value,
+    date: els.shiftDate.value,
+    start: els.startTime.value,
+    end: els.endTime.value,
+    breakMinutes: els.breakMinutes.value,
+    rate: els.shiftRate.value,
+    payCategory: els.payCategory.value,
+    categoryMultiplier: els.categoryMultiplier.value,
+    holidayPay: els.holidayPay.value,
+    sickPay: els.sickPay.value,
+    notes: els.shiftNotes.value
+  };
+}
+
+function saveFormDraft() {
+  state.draft = getFormDraft();
+  saveState();
+}
+
+function applyFormDraft() {
+  const draft = state.draft;
+
+  if (!draft) {
+    resetForm(false);
+    return;
+  }
+
+  els.editingId.value = draft.editingId || "";
+  els.shiftDate.value = draft.date || todayIso();
+  els.startTime.value = draft.start || "";
+  els.endTime.value = draft.end || "";
+  els.breakMinutes.value = draft.breakMinutes || "30";
+  els.shiftRate.value = draft.rate || "";
+  els.payCategory.value = draft.payCategory || "normal";
+  els.categoryMultiplier.value = draft.categoryMultiplier || "1";
+  els.holidayPay.value = draft.holidayPay || "0";
+  els.sickPay.value = draft.sickPay || "0";
+  els.shiftNotes.value = draft.notes || "";
+  updateFormMode();
+}
+
+function updateFormMode() {
+  const isEditing = Boolean(els.editingId.value);
+  els.formTitle.textContent = isEditing ? "Edit shift" : "Add shift";
+  els.saveButton.textContent = isEditing ? "Save changes" : "Add shift";
+  els.cancelEdit.classList.toggle("hidden", !isEditing);
+}
+
 function renderSummary(shifts) {
   const totals = calculateTotals(shifts);
   els.expectedPay.textContent = money(totals.expectedPay);
@@ -343,7 +396,7 @@ function render() {
   renderTable(shifts);
 }
 
-function resetForm() {
+function resetForm(clearDraft = true) {
   els.form.reset();
   els.editingId.value = "";
   els.shiftDate.value = todayIso();
@@ -352,9 +405,11 @@ function resetForm() {
   els.categoryMultiplier.value = "1";
   els.holidayPay.value = "0";
   els.sickPay.value = "0";
-  els.formTitle.textContent = "Add shift";
-  els.saveButton.textContent = "Add shift";
-  els.cancelEdit.classList.add("hidden");
+  updateFormMode();
+  if (clearDraft) {
+    state.draft = getFormDraft();
+    saveState();
+  }
 }
 
 function handleFormSubmit(event) {
@@ -406,9 +461,8 @@ function editShift(id) {
   els.holidayPay.value = shift.holidayPay || 0;
   els.sickPay.value = shift.sickPay || 0;
   els.shiftNotes.value = shift.notes || "";
-  els.formTitle.textContent = "Edit shift";
-  els.saveButton.textContent = "Save changes";
-  els.cancelEdit.classList.remove("hidden");
+  updateFormMode();
+  saveFormDraft();
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
@@ -471,7 +525,7 @@ function exportCsv() {
 }
 
 function resetData() {
-  const ok = confirm("Clear all shifts and pay settings?");
+  const ok = confirm("Clear all saved shifts, pay settings, payslip values, and draft inputs from this device?");
   if (!ok) return;
   localStorage.removeItem(storageKey);
   state.shifts = [];
@@ -484,7 +538,8 @@ function resetData() {
     toDate: "",
     payslipAmount: ""
   };
-  resetForm();
+  state.draft = null;
+  resetForm(false);
   render();
 }
 
@@ -496,8 +551,17 @@ function bindEvents() {
   els.startTime.addEventListener("blur", () => normalizeTimeField(els.startTime));
   els.endTime.addEventListener("blur", () => normalizeTimeField(els.endTime));
 
+  [els.editingId, els.shiftDate, els.startTime, els.endTime, els.breakMinutes, els.shiftRate, els.payCategory, els.categoryMultiplier, els.holidayPay, els.sickPay, els.shiftNotes]
+    .forEach((input) => {
+      input.addEventListener("input", saveFormDraft);
+      input.addEventListener("change", saveFormDraft);
+    });
+
   [els.defaultRate, els.overtimeAfter, els.overtimeMultiplier, els.periodFilter, els.fromDate, els.toDate, els.payslipAmount]
-    .forEach((input) => input.addEventListener("input", updateSetting));
+    .forEach((input) => {
+      input.addEventListener("input", updateSetting);
+      input.addEventListener("change", updateSetting);
+    });
 
   els.shiftTable.addEventListener("click", (event) => {
     const button = event.target.closest("button[data-action]");
@@ -509,7 +573,7 @@ function bindEvents() {
 
 loadState();
 bindEvents();
-resetForm();
+applyFormDraft();
 render();
 
 if ("serviceWorker" in navigator) {

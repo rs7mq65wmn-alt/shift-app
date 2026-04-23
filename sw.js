@@ -1,4 +1,4 @@
-const CACHE_NAME = "shift-tracker-v1";
+const CACHE_NAME = "shift-tracker-v2";
 const APP_ASSETS = [
   "./",
   "./index.html",
