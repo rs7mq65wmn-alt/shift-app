@@ -51,6 +51,11 @@ const els = {
   shiftTable: document.querySelector("#shiftTable"),
   emptyState: document.querySelector("#emptyState"),
   exportCsv: document.querySelector("#exportCsv"),
+  importFile: document.querySelector("#importFile"),
+  importText: document.querySelector("#importText"),
+  importCsv: document.querySelector("#importCsv"),
+  clearImport: document.querySelector("#clearImport"),
+  importStatus: document.querySelector("#importStatus"),
   resetData: document.querySelector("#resetData"),
   customRanges: document.querySelectorAll(".custom-range")
 };
@@ -530,6 +535,161 @@ function exportCsv() {
   URL.revokeObjectURL(url);
 }
 
+function parseCsv(text) {
+  const rows = [];
+  let row = [];
+  let cell = "";
+  let inQuotes = false;
+
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index];
+    const next = text[index + 1];
+
+    if (char === '"' && inQuotes && next === '"') {
+      cell += '"';
+      index += 1;
+    } else if (char === '"') {
+      inQuotes = !inQuotes;
+    } else if (char === "," && !inQuotes) {
+      row.push(cell);
+      cell = "";
+    } else if ((char === "\n" || char === "\r") && !inQuotes) {
+      if (char === "\r" && next === "\n") index += 1;
+      row.push(cell);
+      if (row.some((value) => value.trim() !== "")) rows.push(row);
+      row = [];
+      cell = "";
+    } else {
+      cell += char;
+    }
+  }
+
+  row.push(cell);
+  if (row.some((value) => value.trim() !== "")) rows.push(row);
+  return rows;
+}
+
+function normalizeHeader(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "");
+}
+
+function headerIndex(headers, aliases) {
+  const normalizedHeaders = headers.map(normalizeHeader);
+  return aliases.reduce((found, alias) => {
+    if (found !== -1) return found;
+    return normalizedHeaders.indexOf(normalizeHeader(alias));
+  }, -1);
+}
+
+function valueAt(row, index, fallback = "") {
+  return index >= 0 && row[index] !== undefined ? row[index].trim() : fallback;
+}
+
+function normalizeDate(value) {
+  const trimmed = String(value || "").trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+
+  const slashMatch = trimmed.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})$/);
+  if (!slashMatch) return "";
+
+  const day = slashMatch[1].padStart(2, "0");
+  const month = slashMatch[2].padStart(2, "0");
+  const year = slashMatch[3].length === 2 ? `20${slashMatch[3]}` : slashMatch[3];
+  return `${year}-${month}-${day}`;
+}
+
+function normalizePayCategory(value) {
+  const normalized = normalizeHeader(value);
+  if (normalized.includes("rest")) return "restDay";
+  if (normalized.includes("sun")) return "sunday";
+  return "normal";
+}
+
+function makeShiftId() {
+  return crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function shiftFromImportRow(row, headers) {
+  const dateIndex = headerIndex(headers, ["date", "shift date", "day"]);
+  const startIndex = headerIndex(headers, ["start", "start time", "clock in", "clockin", "in", "start 24-hour"]);
+  const endIndex = headerIndex(headers, ["finish", "end", "end time", "clock out", "clockout", "out", "finish 24-hour"]);
+  const breakIndex = headerIndex(headers, ["break", "unpaid break", "unpaid break minutes", "break minutes"]);
+  const rateIndex = headerIndex(headers, ["rate", "hourly rate", "rate for this shift"]);
+  const categoryIndex = headerIndex(headers, ["type", "pay category", "category"]);
+  const multiplierIndex = headerIndex(headers, ["multiplier", "category multiplier"]);
+  const holidayIndex = headerIndex(headers, ["holiday", "paid holiday", "holiday pay"]);
+  const sickIndex = headerIndex(headers, ["sick", "sick pay"]);
+  const notesIndex = headerIndex(headers, ["notes", "note", "description"]);
+
+  const date = normalizeDate(valueAt(row, dateIndex));
+  const start = normalizeTime(valueAt(row, startIndex));
+  const end = normalizeTime(valueAt(row, endIndex));
+
+  if (!date || !/^([01]\d|2[0-3]):[0-5]\d$/.test(start) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(end)) {
+    return null;
+  }
+
+  return {
+    id: makeShiftId(),
+    date,
+    start,
+    end,
+    breakMinutes: Math.max(0, Math.round(decimalValue(valueAt(row, breakIndex)))),
+    rate: valueAt(row, rateIndex) ? decimalValue(valueAt(row, rateIndex)) : "",
+    payCategory: normalizePayCategory(valueAt(row, categoryIndex)),
+    categoryMultiplier: decimalValue(valueAt(row, multiplierIndex), 1),
+    holidayPay: decimalValue(valueAt(row, holidayIndex)),
+    sickPay: decimalValue(valueAt(row, sickIndex)),
+    notes: valueAt(row, notesIndex)
+  };
+}
+
+function importCsvText(text) {
+  const rows = parseCsv(text.trim());
+  if (rows.length < 2) return { imported: 0, skipped: rows.length };
+
+  const headers = rows[0];
+  const imported = [];
+  let skipped = 0;
+
+  rows.slice(1).forEach((row) => {
+    const shift = shiftFromImportRow(row, headers);
+    if (shift) {
+      imported.push(shift);
+    } else {
+      skipped += 1;
+    }
+  });
+
+  if (imported.length) {
+    state.shifts = state.shifts.concat(imported);
+    saveState();
+    render();
+  }
+
+  return { imported: imported.length, skipped };
+}
+
+function handleImport() {
+  const text = els.importText.value.trim();
+  if (!text) {
+    els.importStatus.textContent = "Choose a CSV file or paste CSV data.";
+    return;
+  }
+
+  const result = importCsvText(text);
+  els.importStatus.textContent = `Imported ${result.imported} row${result.imported === 1 ? "" : "s"}. Skipped ${result.skipped}.`;
+}
+
+function clearImport() {
+  els.importFile.value = "";
+  els.importText.value = "";
+  els.importStatus.textContent = "";
+}
+
 function resetData() {
   const ok = confirm("Clear all saved shifts, pay settings, payslip values, and draft inputs from this device?");
   if (!ok) return;
@@ -553,6 +713,8 @@ function bindEvents() {
   els.form.addEventListener("submit", handleFormSubmit);
   els.cancelEdit.addEventListener("click", resetForm);
   els.exportCsv.addEventListener("click", exportCsv);
+  els.importCsv.addEventListener("click", handleImport);
+  els.clearImport.addEventListener("click", clearImport);
   els.resetData.addEventListener("click", resetData);
   els.startTime.addEventListener("blur", () => normalizeTimeField(els.startTime));
   els.endTime.addEventListener("blur", () => normalizeTimeField(els.endTime));
@@ -574,6 +736,18 @@ function bindEvents() {
     if (!button) return;
     if (button.dataset.action === "edit") editShift(button.dataset.id);
     if (button.dataset.action === "delete") deleteShift(button.dataset.id);
+  });
+
+  els.importFile.addEventListener("change", () => {
+    const file = els.importFile.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.addEventListener("load", () => {
+      els.importText.value = String(reader.result || "");
+      els.importStatus.textContent = `${file.name} loaded.`;
+    });
+    reader.readAsText(file);
   });
 }
 

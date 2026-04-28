@@ -218,6 +218,24 @@
             <button class="text-button" id="exportCsv" type="button">Export CSV</button>
           </div>
         </div>
+        <details class="import-panel">
+          <summary>Import CSV</summary>
+          <div class="import-grid">
+            <label>
+              CSV file
+              <input id="importFile" type="file" accept=".csv,text/csv">
+            </label>
+            <label>
+              Paste CSV
+              <textarea id="importText" rows="5" placeholder="Date,Start,Finish,Break,Rate,Notes"></textarea>
+            </label>
+          </div>
+          <div class="import-actions">
+            <button class="primary-button" id="importCsv" type="button">Import rows</button>
+            <button class="text-button" id="clearImport" type="button">Clear import</button>
+            <p class="status-text" id="importStatus" aria-live="polite"></p>
+          </div>
+        </details>
         <div class="table-wrap">
           <table>
             <thead>

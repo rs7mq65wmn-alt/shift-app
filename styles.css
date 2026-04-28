@@ -308,6 +308,56 @@ select:focus {
   line-height: 1.45;
 }
 
+.import-panel {
+  margin-top: 14px;
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+}
+
+.import-panel summary {
+  width: fit-content;
+  cursor: pointer;
+  color: var(--ink);
+  font-weight: 800;
+}
+
+.import-grid {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.7fr) minmax(280px, 1.3fr);
+  gap: 12px;
+  margin-top: 14px;
+}
+
+textarea {
+  width: 100%;
+  min-height: 118px;
+  resize: vertical;
+  border: 1px solid #c8d0c8;
+  border-radius: 6px;
+  background: #fff;
+  color: var(--ink);
+  padding: 10px 11px;
+  font: inherit;
+  outline: none;
+}
+
+textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(20, 125, 100, 0.14);
+}
+
+.import-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+
+.import-actions .status-text {
+  margin: 0;
+}
+
 .table-panel {
   position: relative;
 }
@@ -395,7 +445,8 @@ td {
   .work-area,
   .settings-grid,
   .two-columns,
-  .payslip-row {
+  .payslip-row,
+  .import-grid {
     grid-template-columns: 1fr;
   }
 
